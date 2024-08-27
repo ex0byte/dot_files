@@ -1,0 +1,12 @@
+{
+  "cssTheme": "Vanilla AMOLED",
+  "theme": "obsidian",
+  "monospaceFontFamily": "JetBrains Mono",
+  "interfaceFontFamily": "JetBrains Mono",
+  "textFontFamily": "JetBrains Mono",
+  "baseFontSize": 18,
+  "baseFontSizeAction": true,
+  "enabledCssSnippets": [
+    "Colored Sidebar Items"
+  ]
+}
