@@ -56,12 +56,13 @@ sed -i '/^GRUB_ENABLE_CRYPTODISK/d' /etc/default/grub
 echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
 
 UUID=$(blkid -s UUID -o value "$ROOT_PART")
-sed -i "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"cryptdevice=UUID=$UUID:cryptroot root=/dev/mapper/cryptroot\"|" /etc/default/grub
+sed -i "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"cryptdevice=UUID=$UUID:cryptroot root=/dev/mapper/cryptroot rootflags=subvol=@\"|" /etc/default/grub
 
 grub-mkconfig -o /boot/grub/grub.cfg
 ok "GRUB installed and configured"
 
 ### Enabling essential services ###
+pacman -S --noconfirm networkmanager openssh
 systemctl enable NetworkManager
 systemctl enable sshd
 ok "Essential services enabled"
