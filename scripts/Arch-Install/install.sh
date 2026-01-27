@@ -54,7 +54,7 @@ while true; do
     fail "Invalid username"
 done
 
-### User password 
+### User password
 while true; do
     prompt_read_password USER_PASSWORD "User password:"
     prompt_read_password CONFIRM_PASSWORD "Confirm user password:"
@@ -63,7 +63,7 @@ while true; do
 done
 ok "User password set"
 
-### Root password 
+### Root password
 while true; do
     prompt_read_password ROOT_PASSWORD "Root password:"
     prompt_read_password CONFIRM_ROOT "Confirm root password:"
@@ -72,7 +72,7 @@ while true; do
 done
 ok "Root password set"
 
-### LUKS Passphrase 
+### LUKS Passphrase
 while true; do
     prompt_read_password LUKS_PASSWORD "Enter LUKS passphrase for root:"
     prompt_read_password CONFIRM_LUKS "Confirm LUKS passphrase:"
@@ -97,12 +97,12 @@ timedatectl set-ntp true
 if ! confirm "Wipe entire disk? (No = dual boot safe)"; then
     WIPE_DISK=false
     warn "Dual-boot mode: existing partitions preserved, new encrypted root will be created."
-
+    
     if $UEFI; then
         echo
         info "Detected EFI partitions:"
         lsblk -ln -o NAME,FSTYPE,PARTLABEL "$DISK" | awk '$2=="vfat"'
-
+        
         while true; do
             prompt_read EFI_PART "Select EFI partition to use (e.g., /dev/nvme0n1p1):"
             [[ -b "$EFI_PART" && $(lsblk -no FSTYPE "$EFI_PART") == "vfat" ]] && break
@@ -117,17 +117,17 @@ fi
 if $WIPE_DISK; then
     prompt_read EFI_SIZE "EFI size in MiB (default 2048):"
     EFI_SIZE=${EFI_SIZE:-2048}
-
+    
     prompt_read ROOT_SIZE "Root size in GiB (0 = use remaining space):"
     ROOT_SIZE=${ROOT_SIZE:-0}
-
+    
     warn "Wiping $DISK"
     prompt_read CONFIRM "Type '$DISK' to confirm:"
     [[ "$CONFIRM" == "$DISK" ]] || die "Disk wipe aborted"
-
+    
     sgdisk --zap-all "$DISK"
     sgdisk -o "$DISK"
-
+    
     if $UEFI; then
         warn "Creating EFI partition"
         sgdisk -n 1:0:+${EFI_SIZE}M -t 1:ef00 -c 1:EFI "$DISK"
@@ -171,9 +171,13 @@ if $UEFI; then
 fi
 
 ### Updating Mirrors & chroot ###
+info "Installing base system..."
+pacstrap /mnt base linux linux-firmware btrfs-progs cryptsetup
+
 info "Updating mirrors..."
 pacman -Sy --noconfirm reflector archlinux-keyring
-reflector --age 12 --protocol https --sort rate --save /mnt/etc/pacman.d/mirrorlist
+reflector --age 12 --protocol https --sort rate --save /mnt/etc/pacman.d/mirrorlist || warn "Reflector failed, continuing with default mirrorlist"
+
 
 info "Copying post-install scripts..."
 cp lib/ui.sh /mnt/root/ui.sh
@@ -182,18 +186,18 @@ chmod +x /mnt/root/chroot.sh
 
 info "Entering chroot..."
 arch-chroot /mnt /usr/bin/env \
-    DISK="$DISK" \
-    TIMEZONE="$TIMEZONE" \
-    LOCALE="$LOCALE" \
-    HOSTNAME="$HOSTNAME" \
-    USERNAME="$USERNAME" \
-    USER_PASSWORD="$USER_PASSWORD" \
-    ROOT_PASSWORD="$ROOT_PASSWORD" \
-    LUKS_PASSWORD="$LUKS_PASSWORD" \
-    EFI_PART="$EFI_PART" \
-    ROOT_PART="$ROOT_PART" \
-    UEFI="$UEFI" \
-    /root/chroot.sh
+DISK="$DISK" \
+TIMEZONE="$TIMEZONE" \
+LOCALE="$LOCALE" \
+HOSTNAME="$HOSTNAME" \
+USERNAME="$USERNAME" \
+USER_PASSWORD="$USER_PASSWORD" \
+ROOT_PASSWORD="$ROOT_PASSWORD" \
+LUKS_PASSWORD="$LUKS_PASSWORD" \
+EFI_PART="$EFI_PART" \
+ROOT_PART="$ROOT_PART" \
+UEFI="$UEFI" \
+/root/chroot.sh
 
 # Cleaning up ###
 unset USER_PASSWORD ROOT_PASSWORD LUKS_PASSWORD
