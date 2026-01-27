@@ -172,7 +172,7 @@ fi
 
 ### Updating Mirrors & chroot ###
 info "Installing base system..."
-pacstrap /mnt base linux linux-firmware btrfs-progs cryptsetup
+pacstrap /mnt base linux linux-firmware btrfs-progs cryptsetup sudo
 
 info "Updating mirrors..."
 pacman -Sy --noconfirm reflector archlinux-keyring
