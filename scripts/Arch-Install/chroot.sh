@@ -38,7 +38,7 @@ sed -i 's/^# \(%wheel ALL=(ALL) ALL\)/\1/' /etc/sudoers
 ok "Sudo configured"
 
 ### Initramfs (with encrypt hook) 
-sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect modconf block encrypt filesystems keyboard fsck)/' /etc/mkinitcpio.conf
+sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect modconf block encrypt btrfs filesystems keyboard fsck)/' /etc/mkinitcpio.conf
 mkinitcpio -P
 ok "Initramfs generated"
 
