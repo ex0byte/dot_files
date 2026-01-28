@@ -43,26 +43,28 @@ sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect keyboard modconf block encrypt b
 mkinitcpio -P
 ok "Initramfs generated"
 
-### GRUB installation ###
-if [[ "$UEFI" == true ]]; then
-    pacman -S --noconfirm grub efibootmgr
-    grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
-else
-    pacman -S --noconfirm grub
-    grub-install --target=i386-pc "$DISK"
-fi
+### Installing systemd-boot ###
+bootctl install
+ok "systemd-boot installed"
 
-[[ -f /etc/default/grub ]] || die "/etc/default/grub not found"
+### systemd-boot loader config ###
+cat > /boot/loader/loader.conf <<EOF
+default arch
+timeout 3
+editor no
+EOF
 
-### Configuring GRUB for LUKS root ###
+### Kernel entry ###
 UUID=$(blkid -s UUID -o value "$ROOT_PART")
 
-sed -i '/^GRUB_ENABLE_CRYPTODISK/d' /etc/default/grub
-echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
-sed -i "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"cryptdevice=UUID=$UUID:cryptroot root=/dev/mapper/cryptroot rootflags=subvol=@\"|" /etc/default/grub
+cat > /boot/loader/entries/arch.conf <<EOF
+title   Arch Linux
+linux   /vmlinuz-linux
+initrd  /initramfs-linux.img
+options cryptdevice=UUID=$UUID:cryptroot root=/dev/mapper/cryptroot rootflags=subvol=@ rw
+EOF
 
-grub-mkconfig -o /boot/grub/grub.cfg
-ok "GRUB installed and configured"
+ok "Boot entry created"
 
 ### Enabling essential services ###
 pacman -S --noconfirm networkmanager openssh
