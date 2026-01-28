@@ -10,7 +10,7 @@ hwclock --systohc
 ok "Timezone set"
 
 ### Locale 
-echo "$LOCALE UTF-8" > /etc/locale.gen
+sed -i "s/^#\($LOCALE UTF-8\)/\1/" /etc/locale.gen
 locale-gen
 echo "LANG=$LOCALE" > /etc/locale.conf
 ok "Locale set"
@@ -38,7 +38,7 @@ sed -i 's/^# \(%wheel ALL=(ALL) ALL\)/\1/' /etc/sudoers
 ok "Sudo configured"
 
 ### Initramfs (with encrypt hook) 
-sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect modconf block encrypt btrfs filesystems keyboard fsck)/' /etc/mkinitcpio.conf
+sed -i 's/^GRUB_CMDLINE_LINUX="/GRUB_CMDLINE_LINUX="cryptdevice=UUID='"$UUID"':cryptroot root=\/dev\/mapper\/cryptroot rootflags=subvol=@ /' /etc/default/grub
 mkinitcpio -P
 ok "Initramfs generated"
 

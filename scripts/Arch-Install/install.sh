@@ -150,7 +150,7 @@ fi
 
 ROOT_PART="/dev/$(lsblk -ln -o NAME "$DISK" | tail -n 1)"
 
-echo -n "$LUKS_PASSWORD" | cryptsetup luksFormat "$ROOT_PART" --type luks2 -
+echo -n "$LUKS_PASSWORD" | cryptsetup luksFormat "$ROOT_PART" --type luks2 --key-file=-
 echo -n "$LUKS_PASSWORD" | cryptsetup open "$ROOT_PART" cryptroot -
 mkfs.btrfs /dev/mapper/cryptroot
 
@@ -172,17 +172,19 @@ fi
 
 ### Updating Mirrors & chroot ###
 info "Installing base system..."
-pacstrap /mnt base linux linux-firmware btrfs-progs cryptsetup sudo
+pacstrap /mnt base linux linux-firmware btrfs-progs cryptsetup sudo amd-ucode
+#intet-ucode
 
 info "Updating mirrors..."
 pacman -Sy --noconfirm reflector archlinux-keyring
 reflector --age 12 --protocol https --sort rate --save /mnt/etc/pacman.d/mirrorlist || warn "Reflector failed, continuing with default mirrorlist"
 
-
 info "Copying post-install scripts..."
 cp lib/ui.sh /mnt/root/ui.sh
 cp chroot.sh /mnt/root/chroot.sh
 chmod +x /mnt/root/chroot.sh
+
+genfstab -U /mnt >> /mnt/etc/fstab
 
 info "Entering chroot..."
 arch-chroot /mnt /usr/bin/env \
