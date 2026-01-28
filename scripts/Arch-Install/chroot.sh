@@ -5,11 +5,12 @@ source /root/ui.sh
 info "Starting chroot configuration..."
 
 ### Timezone 
-ln -sf /usr/share/zoneinfo/"$TIMEZONE" /etc/localtime
+ln -sf "/usr/share/zoneinfo/$TIMEZONE" /etc/localtime
 hwclock --systohc
 ok "Timezone set"
 
 ### Locale 
+grep -q "^#*$LOCALE UTF-8" /etc/locale.gen || die "Locale $LOCALE not found in locale.gen"
 sed -i "s/^#\($LOCALE UTF-8\)/\1/" /etc/locale.gen
 locale-gen
 echo "LANG=$LOCALE" > /etc/locale.conf
@@ -17,7 +18,7 @@ ok "Locale set"
 
 ### Hostname 
 echo "$HOSTNAME" > /etc/hostname
-cat >> /etc/hosts <<EOF
+cat > /etc/hosts <<EOF
 127.0.0.1   localhost
 ::1         localhost
 127.0.1.1   $HOSTNAME.localdomain $HOSTNAME
@@ -37,8 +38,8 @@ ok "User $USERNAME created"
 sed -i 's/^# \(%wheel ALL=(ALL) ALL\)/\1/' /etc/sudoers
 ok "Sudo configured"
 
-### Initramfs (with encrypt hook) 
-sed -i 's/^GRUB_CMDLINE_LINUX="/GRUB_CMDLINE_LINUX="cryptdevice=UUID='"$UUID"':cryptroot root=\/dev\/mapper\/cryptroot rootflags=subvol=@ /' /etc/default/grub
+### Initramfs (with encrypt hook)
+sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect keyboard modconf block encrypt btrfs filesystems fsck)/' /etc/mkinitcpio.conf
 mkinitcpio -P
 ok "Initramfs generated"
 
@@ -51,11 +52,13 @@ else
     grub-install --target=i386-pc "$DISK"
 fi
 
+[[ -f /etc/default/grub ]] || die "/etc/default/grub not found"
+
 ### Configuring GRUB for LUKS root ###
+UUID=$(blkid -s UUID -o value "$ROOT_PART")
+
 sed -i '/^GRUB_ENABLE_CRYPTODISK/d' /etc/default/grub
 echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
-
-UUID=$(blkid -s UUID -o value "$ROOT_PART")
 sed -i "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"cryptdevice=UUID=$UUID:cryptroot root=/dev/mapper/cryptroot rootflags=subvol=@\"|" /etc/default/grub
 
 grub-mkconfig -o /boot/grub/grub.cfg
