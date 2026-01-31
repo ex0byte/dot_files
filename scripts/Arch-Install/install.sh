@@ -154,12 +154,21 @@ echo -n "$LUKS_PASSWORD" | cryptsetup luksFormat "$ROOT_PART" --type luks2 --key
 echo -n "$LUKS_PASSWORD" | cryptsetup open "$ROOT_PART" cryptroot -
 mkfs.btrfs /dev/mapper/cryptroot
 
-### Mounting & Creating Subvolumes ###
-mount /dev/mapper/cryptroot /mnt
-btrfs subvolume create /mnt/@
-btrfs subvolume create /mnt/@home
+### Mounting & Creating Subvolumes (re-runnable) ###
+
+# Mount top-level BTRFS
+mount -o subvolid=5 /dev/mapper/cryptroot /mnt
+
+# Create subvolumes only if they don't exist
+for subvol in @ @home; do
+    if ! btrfs subvolume list /mnt | awk '{print $NF}' | grep -qx "$subvol"; then
+        btrfs subvolume create "/mnt/$subvol"
+    fi
+done
+
 umount /mnt
 
+### Mounting & Creating Subvolumes ###
 MOUNT_OPTS="noatime,compress=zstd,ssd,space_cache=v2,commit=120"
 mount -o $MOUNT_OPTS,subvol=@ /dev/mapper/cryptroot /mnt
 mkdir -p /mnt/home
@@ -167,8 +176,13 @@ mount -o $MOUNT_OPTS,subvol=@home /dev/mapper/cryptroot /mnt/home
 
 if $UEFI; then
     mkdir -p /mnt/boot
+    if [[ "$(lsblk -no FSTYPE "$EFI_PART")" != "vfat" ]]; then
+        die "EFI partition is not FAT32 (vfat)"
+    fi
     mount "$EFI_PART" /mnt/boot
+    mountpoint -q /mnt/boot || die "EFI partition not mounted at /mnt/boot"
 fi
+
 
 ### Updating Mirrors & chroot ###
 info "Installing base system..."
