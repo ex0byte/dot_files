@@ -5,12 +5,11 @@ source "$(dirname "$0")/lib/ui.sh"
 info "Starting Arch Installation......"
 
 ### Detecting UFEI/BIOS ###
-UEFI=false
 if [[ -d /sys/firmware/efi/efivars ]]; then
-    UEFI=true
-    info "UEFI system detected"
+    ok "UEFI system detected"
 else
-    info "BIOS system detected"
+    die "This installer supports UEFI systems only.
+    Reboot and select the UEFI boot option."
 fi
 
 ### Selecting Disk ###
@@ -54,7 +53,6 @@ while true; do
     fail "Invalid username"
 done
 
-### User password
 while true; do
     prompt_read_password USER_PASSWORD "User password:"
     prompt_read_password CONFIRM_PASSWORD "Confirm user password:"
@@ -63,7 +61,6 @@ while true; do
 done
 ok "User password set"
 
-### Root password
 while true; do
     prompt_read_password ROOT_PASSWORD "Root password:"
     prompt_read_password CONFIRM_ROOT "Confirm root password:"
@@ -72,7 +69,6 @@ while true; do
 done
 ok "Root password set"
 
-### LUKS Passphrase
 while true; do
     prompt_read_password LUKS_PASSWORD "Enter LUKS passphrase for root:"
     prompt_read_password CONFIRM_LUKS "Confirm LUKS passphrase:"
@@ -81,6 +77,7 @@ while true; do
 done
 ok "LUKS passphrase set"
 
+### Confirmation ###
 echo
 warn "Please confirm the settings below:"
 echo "Disk:     $DISK"
@@ -93,105 +90,90 @@ ok "Proceeding with installation"
 
 timedatectl set-ntp true
 
-### Asking if Dual-boot / Disk Wipe ###
-if ! confirm "Wipe entire disk? (No = dual boot safe)"; then
-    WIPE_DISK=false
-    warn "Dual-boot mode: existing partitions preserved, new encrypted root will be created."
-    
-    if $UEFI; then
-        echo
-        info "Detected EFI partitions:"
-        lsblk -ln -o NAME,FSTYPE,PARTLABEL "$DISK" | awk '$2=="vfat"'
-        
-        while true; do
-            prompt_read EFI_PART "Select EFI partition to use (e.g., /dev/nvme0n1p1):"
-            [[ -b "$EFI_PART" && $(lsblk -no FSTYPE "$EFI_PART") == "vfat" ]] && break
-            warn "Invalid EFI partition"
-        done
-    fi
-else
-    WIPE_DISK=true
+### Partitioning, Filesystem and LUKS ###
+warn "Manually partition the disk using fdisk."
+if $UEFI; then
+    info "Required layout:"
+    info "  1) EFI System Partition (FAT32, type EFI)"
+    info "  2) Root partition (Linux filesystem, for LUKS)"
 fi
 
-### Partitioning and Formatting Disk ###
-if $WIPE_DISK; then
-    prompt_read EFI_SIZE "EFI size in MiB (default 2048):"
-    EFI_SIZE=${EFI_SIZE:-2048}
+read -rp "Press ENTER to launch fdisk on $DISK..." _
+fdisk "$DISK"
+
+info "Reloading partition table..."
+partprobe "$DISK"
+sleep 2
+
+info "Current partition layout:"
+lsblk -o NAME,SIZE,FSTYPE,TYPE,MOUNTPOINT "$DISK"
+
+### Select EFI partition
+while true; do
+    prompt_read EFI_PART "EFI partition (e.g. /dev/nvme0n1p1):"
+    [[ -b "$EFI_PART" ]] || continue
     
-    prompt_read ROOT_SIZE "Root size in GiB (0 = use remaining space):"
-    ROOT_SIZE=${ROOT_SIZE:-0}
-    
-    warn "Wiping $DISK"
-    prompt_read CONFIRM "Type '$DISK' to confirm:"
-    [[ "$CONFIRM" == "$DISK" ]] || die "Disk wipe aborted"
-    
-    sgdisk --zap-all "$DISK"
-    sgdisk -o "$DISK"
-    
-    if $UEFI; then
-        warn "Creating EFI partition"
-        sgdisk -n 1:0:+${EFI_SIZE}M -t 1:ef00 -c 1:EFI "$DISK"
-        EFI_PART="/dev/$(lsblk -ln -o NAME "$DISK" | head -n 1)"
+    if [[ "$(blkid -o value -s TYPE "$EFI_PART")" != "vfat" ]]; then
+        warn "Formatting EFI partition as FAT32"
         mkfs.fat -F32 "$EFI_PART"
     fi
-else
-    prompt_read ROOT_SIZE "Root size in GiB (0 = use remaining space):"
-    ROOT_SIZE=${ROOT_SIZE:-0}
-fi
-
-### Creating new encrypted root partition ###
-warn "Creating LUKS encrypted root partition"
-
-if [[ "$ROOT_SIZE" == "0" ]]; then
-    sgdisk -n 0:0:0 -t 0:8300 -c 0:ROOT "$DISK"
-else
-    sgdisk -n 0:0:+${ROOT_SIZE}G -t 0:8300 -c 0:ROOT "$DISK"
-fi
-
-ROOT_PART="/dev/$(lsblk -ln -o NAME "$DISK" | tail -n 1)"
-
-echo -n "$LUKS_PASSWORD" | cryptsetup luksFormat "$ROOT_PART" --type luks2 --key-file=-
-echo -n "$LUKS_PASSWORD" | cryptsetup open "$ROOT_PART" cryptroot -
-mkfs.btrfs /dev/mapper/cryptroot
-
-### Mounting & Creating Subvolumes (re-runnable) ###
-
-# Mount top-level BTRFS
-mount -o subvolid=5 /dev/mapper/cryptroot /mnt
-
-# Create subvolumes only if they don't exist
-for subvol in @ @home; do
-    if ! btrfs subvolume list /mnt | awk '{print $NF}' | grep -qx "$subvol"; then
-        btrfs subvolume create "/mnt/$subvol"
-    fi
+    break
 done
 
-umount /mnt
+### Select ROOT partition
+while true; do
+    prompt_read ROOT_PART "Root partition for LUKS (e.g. /dev/nvme0n1p2):"
+    [[ -b "$ROOT_PART" ]] && break
+done
 
-### Mounting & Creating Subvolumes ###
-MOUNT_OPTS="noatime,compress=zstd,ssd,space_cache=v2,commit=120"
-mount -o $MOUNT_OPTS,subvol=@ /dev/mapper/cryptroot /mnt
-mkdir -p /mnt/home
-mount -o $MOUNT_OPTS,subvol=@home /dev/mapper/cryptroot /mnt/home
+### LUKS setup ###
+if ! cryptsetup isLuks "$ROOT_PART"; then
+    info "Creating LUKS container on $ROOT_PART"
+    echo -n "$LUKS_PASSWORD" | cryptsetup luksFormat "$ROOT_PART" --type luks2 --key-file=-
+else
+    info "LUKS already exists on $ROOT_PART"
+fi
 
-if $UEFI; then
-    mkdir -p /mnt/boot
-    if [[ "$(lsblk -no FSTYPE "$EFI_PART")" != "vfat" ]]; then
-        die "EFI partition is not FAT32 (vfat)"
-    fi
-    mount "$EFI_PART" /mnt/boot
-    mountpoint -q /mnt/boot || die "EFI partition not mounted at /mnt/boot"
+if ! cryptsetup status cryptroot &>/dev/null; then
+    info "Opening LUKS container"
+    echo -n "$LUKS_PASSWORD" | cryptsetup open "$ROOT_PART" cryptroot --key-file=-
+else
+    info "LUKS container already opened"
 fi
 
 
-### Updating Mirrors & chroot ###
-info "Installing base system..."
-pacstrap /mnt base linux linux-firmware btrfs-progs cryptsetup sudo amd-ucode
-#intet-ucode
+### BTRFS filesystem ###
+if ! blkid /dev/mapper/cryptroot | grep -q btrfs; then
+    info "Creating BTRFS filesystem"
+    mkfs.btrfs /dev/mapper/cryptroot
+else
+    info "BTRFS filesystem already exists"
+fi
 
-info "Updating mirrors..."
-pacman -Sy --noconfirm reflector archlinux-keyring
-reflector --age 12 --protocol https --sort rate --save /mnt/etc/pacman.d/mirrorlist || warn "Reflector failed, continuing with default mirrorlist"
+
+### Create subvolumes ###
+mount -o subvolid=5 /dev/mapper/cryptroot /mnt
+for subvol in @ @home; do
+    if ! btrfs subvolume show "/mnt/$subvol" &>/dev/null; then
+        info "Creating subvolume $subvol"
+        btrfs subvolume create "/mnt/$subvol"
+    else
+        info "Subvolume $subvol already exists"
+    fi
+done
+umount /mnt
+
+### Mount final layout ###
+
+MOUNT_OPTS="noatime,compress=zstd,ssd,space_cache=v2,commit=120"
+
+mount -o "$MOUNT_OPTS,subvol=@" /dev/mapper/cryptroot /mnt
+mkdir -p /mnt/home
+mount -o "$MOUNT_OPTS,subvol=@home" /dev/mapper/cryptroot /mnt/home
+
+### Base system & chroot
+info "Installing base system..."
+pacstrap /mnt ase linux linux-firmware btrfs-progs cryptsetup sudo archlinux-keyring amd-ucode
 
 info "Copying post-install scripts..."
 cp lib/ui.sh /mnt/root/ui.sh
@@ -202,20 +184,16 @@ genfstab -U /mnt >> /mnt/etc/fstab
 
 info "Entering chroot..."
 arch-chroot /mnt /usr/bin/env \
-DISK="$DISK" \
 TIMEZONE="$TIMEZONE" \
 LOCALE="$LOCALE" \
 HOSTNAME="$HOSTNAME" \
 USERNAME="$USERNAME" \
 USER_PASSWORD="$USER_PASSWORD" \
 ROOT_PASSWORD="$ROOT_PASSWORD" \
-LUKS_PASSWORD="$LUKS_PASSWORD" \
-EFI_PART="$EFI_PART" \
 ROOT_PART="$ROOT_PART" \
-UEFI="$UEFI" \
 /root/chroot.sh
 
-# Cleaning up ###
+### Cleaning up ###
 unset USER_PASSWORD ROOT_PASSWORD LUKS_PASSWORD
 
 ok "Installation complete! You can reboot now."

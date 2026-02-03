@@ -4,6 +4,9 @@ source /root/ui.sh
 
 info "Starting chroot configuration..."
 
+### Checking for EFI ###
+mountpoint -q /boot || die "/boot is not mounted (EFI partition missing)"
+
 ### Timezone 
 ln -sf "/usr/share/zoneinfo/$TIMEZONE" /etc/localtime
 hwclock --systohc
@@ -30,33 +33,40 @@ echo "root:$ROOT_PASSWORD" | chpasswd
 ok "Root password set"
 
 ### User account 
-useradd -m -G wheel -s /bin/bash "$USERNAME"
+if ! id "$USERNAME" &>/dev/null; then
+    useradd -m -G wheel -s /bin/bash "$USERNAME"
+    ok "User $USERNAME created"
+else
+    ok "User $USERNAME already exists"
+fi
 echo "$USERNAME:$USER_PASSWORD" | chpasswd
-ok "User $USERNAME created"
 
 ### Sudoers 
-sed -i 's/^# \(%wheel ALL=(ALL) ALL\)/\1/' /etc/sudoers
+if ! grep -q "^%wheel ALL=(ALL:ALL) ALL" /etc/sudoers; then
+    sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
+fi
 ok "Sudo configured"
 
-### Initramfs (with encrypt hook)
+### Initramfs 
 sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect keyboard modconf block encrypt btrfs filesystems fsck)/' /etc/mkinitcpio.conf
 mkinitcpio -P
 ok "Initramfs generated"
 
-### Installing systemd-boot ###
+### systemd-boot ###
 bootctl install
 ok "systemd-boot installed"
 
-### systemd-boot loader config ###
+mkdir -p /boot/loader
 cat > /boot/loader/loader.conf <<EOF
 default arch
 timeout 3
 editor no
 EOF
 
-### Kernel entry ###
+### Boot entry ###
 UUID=$(blkid -s UUID -o value "$ROOT_PART")
 
+mkdir -p /boot/loader/entries
 cat > /boot/loader/entries/arch.conf <<EOF
 title   Arch Linux
 linux   /vmlinuz-linux
