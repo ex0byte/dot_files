@@ -171,6 +171,11 @@ mount -o "$MOUNT_OPTS,subvol=@" /dev/mapper/cryptroot /mnt
 mkdir -p /mnt/home
 mount -o "$MOUNT_OPTS,subvol=@home" /dev/mapper/cryptroot /mnt/home
 
+mkdir -p /mnt/boot
+mount "$EFI_PART" /mnt/boot || die "Failed to mount EFI partition at /mnt/boot"
+mountpoint -q /mnt/boot || die "EFI partition not mounted"
+ok "EFI partition mounted at /mnt/boot"
+
 ### Base system & chroot
 info "Installing base system..."
 pacstrap /mnt base linux linux-firmware btrfs-progs cryptsetup sudo archlinux-keyring amd-ucode
