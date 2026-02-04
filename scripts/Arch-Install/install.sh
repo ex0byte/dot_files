@@ -173,7 +173,7 @@ mount -o "$MOUNT_OPTS,subvol=@home" /dev/mapper/cryptroot /mnt/home
 
 ### Base system & chroot
 info "Installing base system..."
-pacstrap /mnt ase linux linux-firmware btrfs-progs cryptsetup sudo archlinux-keyring amd-ucode
+pacstrap /mnt base linux linux-firmware btrfs-progs cryptsetup sudo archlinux-keyring amd-ucode
 
 info "Copying post-install scripts..."
 cp lib/ui.sh /mnt/root/ui.sh
