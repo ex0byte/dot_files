@@ -82,4 +82,75 @@ systemctl enable NetworkManager
 systemctl enable sshd
 ok "Essential services enabled"
 
+### Secure Boot
+SECURE_BOOT=false
+echo
+prompt_read sb_choice "Do you want to enable Secure Boot now? [y/N]: "
+
+if [[ $sb_choice =~ ^(y|Y|yes|YES)$ ]]; then
+    info "Configuring Secure Boot..."
+    
+    pacman -S --noconfirm sbctl sbsigntools systemd-ukify
+    
+    if ! sbctl status | grep -q "Installed: ✓"; then
+        sbctl create-keys
+        sbctl enroll-keys
+        ok "Secure Boot keys created and enrolled"
+    else
+        warn "Secure Boot keys already exist — skipping key creation"
+    fi
+    
+    mkdir -p /etc/kernel
+    cat > /etc/kernel/cmdline <<EOF
+cryptdevice=UUID=$ROOT_UUID:cryptroot root=/dev/mapper/cryptroot rootflags=subvol=@ rw
+EOF
+    
+    mkdir -p /boot/EFI/Linux
+    
+    cat > /etc/mkinitcpio.d/linux.preset <<EOF
+ALL_kver="/boot/vmlinuz-linux"
+PRESETS=('default')
+default_uki="/boot/EFI/Linux/arch-linux.efi"
+EOF
+    
+    mkinitcpio -P
+    sbctl sign /boot/EFI/Linux/arch-linux.efi
+    
+    cat > /boot/loader/entries/arch.conf <<EOF
+title Arch Linux (Secure Boot)
+efi   /EFI/Linux/arch-linux.efi
+EOF
+    
+    sbctl sign-all
+    sbctl enable
+    
+    ok "Secure Boot enabled"
+    
+    ### Pacman auto-sign hook ###
+    info "Installing Secure Boot pacman hook..."
+    
+    mkdir -p /etc/pacman.d/hooks
+    cat > /etc/pacman.d/hooks/90-secureboot-sign.hook <<'EOF'
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = linux
+Target = systemd
+Target = systemd-boot
+Target = linux-firmware
+Target = amd-ucode
+Target = intel-ucode
+
+[Action]
+Description = Signing EFI binaries for Secure Boot
+When = PostTransaction
+Exec = /usr/bin/sbctl sign-all
+EOF
+    
+    ok "Secure Boot auto-sign hook installed"
+else
+    info "Secure Boot will not be configured"
+fi
+
 info "Chroot configuration complete! You can exit and reboot."
