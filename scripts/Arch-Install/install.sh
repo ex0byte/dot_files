@@ -113,9 +113,12 @@ while true; do
     prompt_read EFI_PART "EFI partition (e.g. /dev/nvme0n1p1):"
     [[ -b "$EFI_PART" ]] || continue
     
-    if [[ "$(blkid -o value -s TYPE "$EFI_PART")" != "vfat" ]]; then
-        warn "Formatting EFI partition as FAT32"
-        mkfs.fat -F32 "$EFI_PART"
+    prompt_read wipe_choice "Do you want to wipe EFI ? [y/N]: "
+    if [[ $wipe_choice =~ ^(y|Y|yes|YES)$ ]]; then
+        if [[ "$(blkid -o value -s TYPE "$EFI_PART")" != "vfat" ]]; then
+            warn "Formatting EFI partition as FAT32"
+            mkfs.fat -F32 "$EFI_PART"
+        fi
     fi
     break
 done
