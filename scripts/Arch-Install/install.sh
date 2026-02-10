@@ -181,7 +181,7 @@ ok "EFI partition mounted at /mnt/boot"
 
 ### Base system & chroot
 info "Installing base system..."
-pacstrap /mnt base linux linux-firmware btrfs-progs cryptsetup sudo archlinux-keyring amd-ucode
+pacstrap /mnt base linux linux-firmware btrfs-progs cryptsetup sudo archlinux-keyring amd-ucode sof-firmware
 
 info "Copying post-install scripts..."
 cp lib/ui.sh /mnt/root/ui.sh
