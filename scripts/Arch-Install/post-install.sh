@@ -62,7 +62,6 @@ ok "Restored icons";
 
 HOME_FILES=(
     .bashrc
-    .gitconfig
 )
 
 info "Restoring home dotfiles..."

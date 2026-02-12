@@ -33,8 +33,6 @@ done
 
 HOME_FILES=(
     .bashrc
-    .bash_profile
-    .gitconfig
 )
 
 info "Backing up icons"
@@ -45,16 +43,6 @@ else
     warn "icons not found, skipping"
 fi
 
-
-# info "Backing up home dotfiles..."
-# for file in "${HOME_FILES[@]}"; do
-#     if [[ -f "$USER_HOME/$file" ]]; then
-#         cp "$USER_HOME/$file" "$DOTFILES_DIR/home/"
-#         ok "Backed up $file"
-#     else
-#         warn "$file not found, skipping"
-#     fi
-# done
 info "Backing up home dotfiles..."
 for file in "${HOME_FILES[@]}"; do
     if [[ -f "$USER_HOME/$file" ]]; then
