@@ -49,6 +49,17 @@ for dir in "${CONFIG_DIRS[@]}"; do
     fi
 done
 
+info "Restoring icons..."
+if[[ -d "$DOTFILES_DIR/icons"]];then
+    if[[ -d "$USER_HOME/.icons/"]]; then
+        continue;
+    else
+        (cd $USER_HOME; mkdir .icons);
+    fi
+    cp -r "$DOTFILES_DIR/icons" "$USER_HOME/.icons/";
+fi
+ok "Restored icons";
+
 HOME_FILES=(
     .bashrc
     .gitconfig
