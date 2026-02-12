@@ -19,6 +19,15 @@ CONFIG_DIRS=(
     gnome-shell
 )
 
+mkdir -p "$DOTFILES_DIR/apps"
+info "Backing up pacman packages..."
+pacman -Qqe > "$DOTFILES_DIR/apps/pacman.txt"
+ok "Pacman package list saved"
+
+info "Backing up AUR packages..."
+pacman -Qqm > "$DOTFILES_DIR/apps/aur.txt"
+ok "AUR package list saved"
+
 info "Backing up selected ~/.config directories..."
 for dir in "${CONFIG_DIRS[@]}"; do
     if [[ -d "$USER_HOME/.config/$dir" ]]; then

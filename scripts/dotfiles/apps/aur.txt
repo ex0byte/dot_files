@@ -1,0 +1,11 @@
+gnome-shell-extension-blur-my-shell
+gnome-shell-extension-caffeine-git
+gnome-shell-extension-clock-override-git
+gnome-shell-extension-dash-to-dock
+google-chrome
+opencl-amd
+ttf-arphic-extra
+ttf-ms-fonts
+visual-studio-code-bin
+yay
+yay-debug
