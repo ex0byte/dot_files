@@ -1,0 +1,25 @@
+{
+  "name": "lib",
+  "dependencies": {
+    "node-gyp": {
+      "version": "12.3.0",
+      "overridden": false
+    },
+    "nopt": {
+      "version": "10.0.0",
+      "overridden": false
+    },
+    "npm": {
+      "version": "11.14.1",
+      "overridden": false
+    },
+    "semver": {
+      "version": "7.8.0",
+      "overridden": false
+    },
+    "typescript": {
+      "version": "5.9.3",
+      "overridden": false
+    }
+  }
+}

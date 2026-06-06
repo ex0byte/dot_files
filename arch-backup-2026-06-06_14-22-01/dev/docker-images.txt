@@ -1,0 +1,2 @@
+streamsync-backend:latest
+node:20-alpine

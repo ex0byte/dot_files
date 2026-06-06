@@ -1,0 +1,11 @@
+{
+    "window.menuBarVisibility": "classic",
+    "workbench.colorTheme": "nextjs",
+    "security.workspace.trust.untrustedFiles": "open",
+    "git.openRepositoryInParentFolders": "always",
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 1,
+    "explorer.confirmDelete": false,
+    "explorer.confirmDragAndDrop": false,
+    "workbench.iconTheme": "vscode-icons"
+}

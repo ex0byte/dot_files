@@ -1,0 +1,16 @@
+docker-credential-pass 0.9.3-1
+gnome-shell-extension-blur-my-shell 72-1
+gnome-shell-extension-caffeine-git 60.r0.g8b71e0e-1
+gnome-shell-extension-clock-override-git 5+49+gc6578c3-1
+gnome-shell-extension-dash-to-dock 1:105-1
+google-chrome 147.0.7727.137-1
+neofetch 7.1.0-2
+ngrok 3.22.0-1
+opencl-amd 1:6.3.2-1
+postman-bin 11.37.1-1
+transmission-gtk-git 2:4.1.0.beta.2.r23.gd6e78d11e-1
+ttf-arphic-extra 20190327-4
+ttf-ms-fonts 2.0-12
+visual-studio-code-bin 1.117.0-1
+yay 12.5.7-1
+yay-debug 12.5.7-1

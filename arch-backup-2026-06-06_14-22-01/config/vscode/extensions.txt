@@ -1,0 +1,5 @@
+github.copilot-chat
+rogalmic.bash-debug
+shakram02.bash-beautify
+shayanalijalbani.nextjs-theme
+vscode-icons-team.vscode-icons

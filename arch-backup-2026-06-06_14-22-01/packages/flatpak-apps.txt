@@ -1,0 +1,2 @@
+com.stremio.Service
+com.stremio.Stremio
